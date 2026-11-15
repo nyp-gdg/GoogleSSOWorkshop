@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workshop Demo Showcase - GDGoC NYP</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container container-wide">
+    <header class="header">
+      <a href="{{ url_for('index') }}" class="brand-link">
+        <img src="https://nyp-gdg.com/static/logos/GDGonCampus_NYP_Horizontal_Light.png" alt="Google Developer Groups on Campus - Nanyang Polytechnic" class="brand-logo">
+      </a>
+    </header>
+
+    <main class="card showcase-card">
+      <div class="showcase-header">
+        <div class="nav-links">
+          <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Home</a>
+          {% if user %}
+            <span class="user-pill">
+              {% if user.picture %}<img src="{{ user.picture }}" alt="User avatar" class="mini-avatar">{% endif %}
+              {{ user.name }} (Signed in)
+            </span>
+          {% else %}
+            <span class="user-pill guest-pill">Guest (Not signed in)</span>
+          {% endif %}
+        </div>
+        <h1>Workshop Demos Showcase</h1>
+        <p class="subtitle">Interactive showcase for all Act 1, Act 2, and Act 3 authentication demos</p>
+      </div>
+
+      <!-- ACT 1 -->
+      <section class="demo-section">
+        <div class="section-badge act-1">Act 1</div>
+        <h2>Fundamental Authentication Concepts</h2>
+        <p class="section-desc">Test and inspect how different authentication mechanisms transport credentials across HTTP requests.</p>
+
+        <div class="demo-grid-single">
+          <!-- Basic Auth Card -->
+          <div class="demo-tile">
+            <div class="tile-header">
+              <span class="tile-tag">HTTP Header</span>
+              <h3>1. Basic Auth</h3>
+            </div>
+            <p class="tile-desc">Sends credentials in <code>Authorization: Basic base64(user:pass)</code> on every request.</p>
+            <div class="tile-meta">
+              <code>GET /demo/basic-auth</code>
+              <small>Default test credentials: <strong>sofia : secret</strong></small>
+            </div>
+            <div class="interactive-panel">
+              <div class="input-row">
+                <input type="text" id="basic-user" placeholder="Username" value="sofia" class="form-input">
+                <input type="password" id="basic-pass" placeholder="Password" value="secret" class="form-input">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-primary" onclick="testBasicAuth()">Send with Credentials</button>
+              </div>
+              <div id="basic-auth-result" class="result-box hidden">
+                <div class="result-header">
+                  <span class="status-indicator" id="basic-status-badge"></span>
+                  <span id="basic-status-text"></span>
+                </div>
+                <pre><code id="basic-auth-json"></code></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stateful Session Auth Card -->
+          <div class="demo-tile">
+            <div class="tile-header">
+              <span class="tile-tag">Stateful Cookie</span>
+              <h3>2. Stateful Session Auth</h3>
+            </div>
+            <p class="tile-desc">
+              Logs in via POST. The server generates an opaque Session ID, stores <code>{ session_id: user }</code> in an <strong>in-memory table</strong>, and sets a <code>demo_session_id</code> cookie.<br>
+              <em style="color: var(--google-red);">Notice:</em> If the server reboots or restarts, the in-memory session table is wiped clean and the cookie can no longer be verified!
+            </p>
+            <div class="tile-meta">
+              <code>POST /demo/session-login</code> &amp; <code>GET /demo/session-profile</code>
+            </div>
+            <div class="interactive-panel">
+              <div class="input-row">
+                <input type="text" id="session-username" placeholder="Username to store in server session" value="NYP Student" class="form-input">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-primary" onclick="testSessionLogin()">1. Set Session Cookie</button>
+                <button class="btn btn-sm btn-secondary" onclick="testSessionProfile()">2. Check Session Profile</button>
+                <button class="btn btn-sm btn-danger" onclick="resetSessionAuth()">Reset / Invalidate Session</button>
+              </div>
+              <div id="session-auth-result" class="result-box hidden">
+                <div class="result-header">
+                  <span class="status-indicator" id="session-status-badge"></span>
+                  <span id="session-status-text"></span>
+                </div>
+                <pre><code id="session-auth-json"></code></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stateless Bearer Auth Card -->
+          <div class="demo-tile">
+            <div class="tile-header">
+              <span class="tile-tag">Stateless Token</span>
+              <h3>3. Stateless Bearer Auth</h3>
+            </div>
+            <p class="tile-desc">
+              Step 1: Exchange user credentials for a signed JSON Web Token (JWT).<br>
+              Step 2: Send token in <code>Authorization: Bearer &lt;token&gt;</code> to verify claims statelessly without DB lookup.
+            </p>
+            <div class="tile-meta">
+              <code>POST /demo/bearer-token</code> (Issue Token) &amp; <code>GET /demo/bearer-auth</code> (Verify Token)
+            </div>
+            <div class="interactive-panel">
+              <div class="input-row">
+                <input type="text" id="bearer-user-input" placeholder="Username for token (sub claim)" value="student_alex" class="form-input">
+                <input type="text" id="bearer-token-input" placeholder="Bearer Token (Generated in Step 1)" class="form-input">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-primary" onclick="createBearerToken()">1. Create Token (POST)</button>
+                <button class="btn btn-sm btn-primary" onclick="testBearerAuth(true)">2. Verify Token (GET)</button>
+                <button class="btn btn-sm btn-secondary" onclick="testBearerAuth(false)">Send Without Token</button>
+              </div>
+              <div id="bearer-auth-result" class="result-box hidden">
+                <div class="result-header">
+                  <span class="status-indicator" id="bearer-status-badge"></span>
+                  <span id="bearer-status-text"></span>
+                </div>
+                <pre><code id="bearer-auth-json"></code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACT 2 -->
+      <section class="demo-section">
+        <div class="section-badge act-2">Act 2</div>
+        <h2>Sign In with Google (SSO &amp; OpenID Connect)</h2>
+        <p class="section-desc">Federated single sign-on using Google OAuth 2.0 and OpenID Connect to verify user identity securely.</p>
+
+        <div class="demo-grid">
+          <div class="demo-tile span-full">
+            <div class="tile-header">
+              <span class="tile-tag">OpenID Connect</span>
+              <h3>Google Identity &amp; ID Token Verification</h3>
+            </div>
+            <p class="tile-desc">
+              Routes: <code>/login</code> &rarr; <code>/callback</code> &rarr; <code>/logout</code>.
+              Google returns a signed JSON Web Token (ID Token) with verified claims (`sub`, `email`, `name`, `picture`).
+            </p>
+            <div class="act2-status-box">
+              {% if user %}
+                <div class="user-active-card">
+                  <img src="{{ user.picture or 'https://via.placeholder.com/64' }}" alt="Avatar" class="avatar-sm">
+                  <div class="user-active-info">
+                    <strong>{{ user.name }}</strong>
+                    <span>{{ user.email }}</span>
+                    <code>Google sub ID: {{ user.sub }}</code>
+                  </div>
+                  <div class="user-active-actions">
+                    <a href="{{ url_for('index') }}" class="btn btn-sm btn-primary">Go to Profile</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-secondary">Sign Out</a>
+                  </div>
+                </div>
+              {% else %}
+                <div class="guest-banner">
+                  <p>You are currently not signed in with Google.</p>
+                  <a href="{{ url_for('login') }}" class="google-btn google-btn-sm">
+                    <svg class="google-icon" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+                      <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.93 6.72-4.93z"/>
+                    </svg>
+                    Test Sign in with Google
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACT 3 -->
+      <section class="demo-section">
+        <div class="section-badge act-3">Act 3</div>
+        <h2>OAuth 2.0 User Delegation &amp; Google Tasks API</h2>
+        <p class="section-desc">Delegated authorization using Access Tokens to fetch protected Google user data via Google API Client.</p>
+
+        <div class="demo-grid">
+          <div class="demo-tile span-full">
+            <div class="tile-header">
+              <span class="tile-tag">API Authorization</span>
+              <h3>Google Tasks API Integration</h3>
+            </div>
+            <p class="tile-desc">
+              Route: <code>/tasks</code> (Requires login &amp; <code>tasks.readonly</code> scope).
+              Uses the OAuth 2.0 Access Token with automatic Refresh Token exchange to query user task lists.
+            </p>
+            <div class="act3-action-row">
+              <a href="{{ url_for('tasks') }}" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Launch Google Tasks Demo (/tasks)
+              </a>
+              <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+                Inspect / Revoke Permissions &nearr;
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMPARISON CHEATSHEET -->
+      <section class="demo-section">
+        <div class="section-badge act-summary">Summary</div>
+        <h2>Auth Architecture Comparison</h2>
+        <div class="table-responsive">
+          <table class="showcase-table">
+            <thead>
+              <tr>
+                <th>Mechanism</th>
+                <th>Credential Transport</th>
+                <th>State Storage</th>
+                <th>Revocation</th>
+                <th>Use Case</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Basic Auth</strong></td>
+                <td><code>Authorization: Basic base64</code></td>
+                <td>Stateless (sent every request)</td>
+                <td>Difficult (browser cache)</td>
+                <td>Legacy internal tooling / scripting</td>
+              </tr>
+              <tr>
+                <td><strong>Stateful Session Auth</strong></td>
+                <td>Opaque Cookie (<code>demo_session_id</code>)</td>
+                <td>Server Memory Table (<code>DEMO_SESSIONS</code>)</td>
+                <td>Instant (cleared on server / logout)</td>
+                <td>Traditional multi-page web applications</td>
+              </tr>
+              <tr>
+                <td><strong>Stateless Bearer Auth</strong></td>
+                <td><code>Authorization: Bearer &lt;token&gt;</code></td>
+                <td>Stateless (Self-contained JWT)</td>
+                <td>Short expiry + refresh tokens</td>
+                <td>REST/GraphQL APIs, Mobile apps, SPAs</td>
+              </tr>
+              <tr>
+                <td><strong>Google SSO (OIDC)</strong></td>
+                <td>Authorization Code &rarr; ID Token</td>
+                <td>Decoded claims in app session</td>
+                <td>Google IdP session</td>
+                <td>User identity &amp; frictionless authentication</td>
+              </tr>
+              <tr>
+                <td><strong>OAuth 2.0 Delegation</strong></td>
+                <td>Access &amp; Refresh Tokens</td>
+                <td>Secure server-side token store</td>
+                <td>User Revocation (Google Account)</td>
+                <td>Third-party resource access (e.g. Tasks API)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>GDG on Campus · Nanyang Polytechnic · <a href="{{ url_for('index') }}">Return Home</a></p>
+    </footer>
+  </div>
+
+  <script>
+    function renderResult(boxId, statusBadgeId, statusTextId, jsonId, status, statusText, data) {
+      const box = document.getElementById(boxId);
+      const badge = document.getElementById(statusBadgeId);
+      const title = document.getElementById(statusTextId);
+      const jsonEl = document.getElementById(jsonId);
+
+      box.classList.remove('hidden');
+      badge.className = 'status-indicator ' + (status >= 200 && status < 300 ? 'status-success' : 'status-fail');
+      title.textContent = `HTTP ${status} - ${statusText}`;
+      jsonEl.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+    }
+
+    async function testBasicAuth() {
+      const u = document.getElementById('basic-user').value;
+      const p = document.getElementById('basic-pass').value;
+      const headers = {
+        'Authorization': 'Basic ' + btoa(u + ':' + p)
+      };
+      try {
+        const res = await fetch('{{ url_for("demo_basic_auth") }}', { headers });
+        let text;
+        try {
+          text = await res.json();
+        } catch {
+          text = await res.text();
+        }
+        renderResult('basic-auth-result', 'basic-status-badge', 'basic-status-text', 'basic-auth-json', res.status, res.statusText, text);
+      } catch (err) {
+        renderResult('basic-auth-result', 'basic-status-badge', 'basic-status-text', 'basic-auth-json', 0, 'Network Error', err.message);
+      }
+    }
+
+    async function testSessionLogin() {
+      const username = document.getElementById('session-username').value;
+      const formData = new URLSearchParams();
+      formData.append('username', username);
+
+      try {
+        const res = await fetch('{{ url_for("demo_session_login") }}', {
+          method: 'POST',
+          body: formData,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        const data = await res.json();
+        renderResult('session-auth-result', 'session-status-badge', 'session-status-text', 'session-auth-json', res.status, 'Session Cookie Set', data);
+      } catch (err) {
+        renderResult('session-auth-result', 'session-status-badge', 'session-status-text', 'session-auth-json', 0, 'Error', err.message);
+      }
+    }
+
+    async function testSessionProfile() {
+      try {
+        const res = await fetch('{{ url_for("demo_session_profile") }}');
+        const data = await res.json();
+        renderResult('session-auth-result', 'session-status-badge', 'session-status-text', 'session-auth-json', res.status, res.statusText, data);
+      } catch (err) {
+        renderResult('session-auth-result', 'session-status-badge', 'session-status-text', 'session-auth-json', 0, 'Error', err.message);
+      }
+    }
+
+    async function resetSessionAuth() {
+      try {
+        const res = await fetch('{{ url_for("demo_session_reset") }}', { method: 'POST' });
+        const data = await res.json();
+        renderResult('session-auth-result', 'session-status-badge', 'session-status-text', 'session-auth-json', 200, 'Session Cleared', data);
+      } catch (err) {
+        renderResult('session-auth-result', 'session-status-badge', 'session-status-text', 'session-auth-json', 0, 'Error', err.message);
+      }
+    }
+
+    async function createBearerToken() {
+      const username = document.getElementById('bearer-user-input').value || 'student';
+      const formData = new URLSearchParams();
+      formData.append('username', username);
+      formData.append('expires_in', '3600');
+
+      try {
+        const res = await fetch('{{ url_for("demo_bearer_create_token") }}', {
+          method: 'POST',
+          body: formData,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        const data = await res.json();
+        if (data.token) {
+          document.getElementById('bearer-token-input').value = data.token;
+        }
+        renderResult('bearer-auth-result', 'bearer-status-badge', 'bearer-status-text', 'bearer-auth-json', res.status, 'Token Created', data);
+      } catch (err) {
+        renderResult('bearer-auth-result', 'bearer-status-badge', 'bearer-status-text', 'bearer-auth-json', 0, 'Error', err.message);
+      }
+    }
+
+    async function testBearerAuth(sendToken) {
+      const headers = {};
+      if (sendToken) {
+        const token = document.getElementById('bearer-token-input').value;
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      try {
+        const res = await fetch('{{ url_for("demo_bearer_auth") }}', { headers });
+        const data = await res.json();
+        renderResult('bearer-auth-result', 'bearer-status-badge', 'bearer-status-text', 'bearer-auth-json', res.status, res.statusText, data);
+      } catch (err) {
+        renderResult('bearer-auth-result', 'bearer-status-badge', 'bearer-status-text', 'bearer-auth-json', 0, 'Error', err.message);
+      }
+    }
+  </script>
+</body>
+</html>

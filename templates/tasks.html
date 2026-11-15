@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Tasks - GDGoC NYP</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container container-wide">
+    <header class="header">
+      <a href="{{ url_for('index') }}" class="brand-link">
+        <img src="https://nyp-gdg.com/static/logos/GDGonCampus_NYP_Horizontal_Light.png" alt="Google Developer Groups on Campus - Nanyang Polytechnic" class="brand-logo">
+      </a>
+    </header>
+
+    <main class="card showcase-card">
+      <div class="tasks-header">
+        <div style="display: flex; gap: 16px; margin-bottom: 12px;">
+          <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Profile</a>
+          <a href="{{ url_for('demos') }}" class="back-link">&boxbox; Demo Showcase</a>
+        </div>
+        <h1>My Google Tasks</h1>
+        <p class="subtitle">Fetched using OAuth 2.0 Access Token (Scope: <code>tasks.readonly</code>)</p>
+      </div>
+
+      {% if error %}
+        <div class="alert alert-error">
+          <strong>Error fetching tasks:</strong> {{ error }}
+          <p style="margin-top: 8px; font-size: 0.9rem;">
+            Did you enable the <strong>Google Tasks API</strong> in your Google Cloud Console project?
+          </p>
+        </div>
+      {% elif tasklists %}
+        <div class="tasklists-board">
+          {% for tl in tasklists %}
+            <div class="tasklist-card">
+              <div class="tasklist-card-header">
+                <div class="tasklist-card-title-group">
+                  <h3>{{ tl.title }}</h3>
+                  <span class="task-count-pill">{{ tl.tasks | length }} item{{ 's' if (tl.tasks | length) != 1 else '' }}</span>
+                </div>
+                {% if tl.updated %}
+                  <span class="tasklist-meta">Updated: {{ tl.updated[:10] }}</span>
+                {% endif %}
+              </div>
+
+              {% if tl.tasks %}
+                <ul class="task-items-list">
+                  {% for t in tl.tasks %}
+                    <li class="task-item-row {{ 'completed' if t.status == 'completed' else '' }}">
+                      <span class="task-status-circle {{ 'checked' if t.status == 'completed' else '' }}" title="{{ 'Completed' if t.status == 'completed' else 'Pending' }}">
+                        {% if t.status == 'completed' %}
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                        {% endif %}
+                      </span>
+                      <div class="task-item-content">
+                        <span class="task-item-title">{{ t.title or '(Untitled task)' }}</span>
+                        {% if t.notes %}
+                          <p class="task-item-notes">{{ t.notes }}</p>
+                        {% endif %}
+                        <div class="task-item-tags">
+                          {% if t.due %}
+                            <span class="task-tag due-tag">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                              Due: {{ t.due[:10] }}
+                            </span>
+                          {% endif %}
+                          {% if t.status == 'completed' %}
+                            <span class="task-tag completed-tag">Completed</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <div class="empty-list-state">
+                  <span>No tasks in this list</span>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <p>No task lists found. Create a list at <a href="https://calendar.google.com" target="_blank">Google Calendar / Tasks</a> and refresh!</p>
+        </div>
+      {% endif %}
+
+      <div class="security-reminder">
+        <h4>🔒 Security Tip (Revoking Access)</h4>
+        <p>After testing, visit <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a> and remove access for this test application to test the authorization revocation flow!</p>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>GDG on Campus · Nanyang Polytechnic</p>
+    </footer>
+  </div>
+</body>
+</html>
