@@ -36,6 +36,10 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
               Demo Showcase
             </a>
+            <a href="{{ url_for('onetap') }}" class="btn btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              Google One Tap
+            </a>
             <a href="{{ url_for('logout') }}" class="btn btn-secondary">Sign Out</a>
           </div>
 
@@ -62,10 +66,14 @@
               Sign in with Google
             </a>
           </div>
-          <div style="margin-top: 16px;">
+          <div style="margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
             <a href="{{ url_for('demos') }}" class="btn btn-secondary" style="font-size: 0.9rem;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-              Explore Demo Showcase (Act 1, 2 &amp; 3)
+              Explore Auth Demos
+            </a>
+            <a href="{{ url_for('onetap') }}" class="btn btn-secondary" style="font-size: 0.9rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+              Google One Tap Demo &rarr;
             </a>
           </div>
         </div>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google One Tap Demo - GDGoC NYP</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Google Identity Services client library for One Tap -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  {% if client_id and not user %}
+    <!-- Google One Tap Configuration & Auto-Prompt using JavaScript callback -->
+    <div id="g_id_onload"
+         data-client_id="{{ client_id }}"
+         data-callback="handleOneTapResponse"
+         data-auto_prompt="true"
+         data-auto_select="true"
+         data-itp_support="true">
+    </div>
+  {% endif %}
+
+  <div class="container container-wide">
+    <header class="header">
+      <a href="{{ url_for('index') }}" class="brand-link">
+        <img src="https://nyp-gdg.com/static/logos/GDGonCampus_NYP_Horizontal_Light.png" alt="Google Developer Groups on Campus - Nanyang Polytechnic" class="brand-logo">
+      </a>
+    </header>
+
+    <main class="card showcase-card">
+      <div class="onetap-header">
+        <div class="nav-links">
+          <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Home</a>
+          <a href="{{ url_for('demos') }}" class="back-link">&boxbox; All Demos</a>
+        </div>
+        <div class="section-badge act-2">Part 15 &amp; 16</div>
+        <h1>Google One Tap Sign-In Demo</h1>
+        <p class="subtitle">Frictionless, inline authentication without full-page OAuth redirects</p>
+      </div>
+
+      {% if user %}
+        <div class="profile-section onetap-profile">
+          {% if user.picture %}
+            <img src="{{ user.picture }}" alt="Profile Photo" class="avatar">
+          {% endif %}
+          <h2>Signed in via Google One Tap!</h2>
+          <p class="email-badge">{{ user.name }} ({{ user.email }})</p>
+          <p class="sub-info"><code>Verified Google sub: {{ user.sub }}</code></p>
+
+          <div class="actions">
+            <a href="{{ url_for('onetap_logout') }}" class="btn btn-secondary">Sign Out of One Tap</a>
+            <a href="{{ url_for('tasks') }}" class="btn btn-primary">Go to Google Tasks</a>
+          </div>
+
+          <details class="token-details" open style="margin-top: 20px;">
+            <summary>Verified ID Token Claims (Decoded by google-auth SDK)</summary>
+            <pre><code>{{ user | tojson(indent=2) }}</code></pre>
+          </details>
+        </div>
+      {% else %}
+        <div class="onetap-instruction-box">
+          <div class="onetap-status-banner">
+            <span class="status-indicator status-success"></span>
+            <span><strong>One Tap Prompt Ready:</strong> Look at the top-right corner of your browser window!</span>
+          </div>
+
+          <p class="onetap-explainer">
+            Google One Tap prompts users who are already logged into a Google Account on Chrome/browser with an intuitive, one-click sign-in card.
+          </p>
+
+          {% if not client_id %}
+            <div class="alert alert-error">
+              <strong>GOOGLE_CLIENT_ID missing:</strong> You need to set <code>GOOGLE_CLIENT_ID</code> in your <code>.env</code> file (from Part 12) for the One Tap client prompt to appear.
+            </div>
+          {% endif %}
+
+          <div class="onetap-fallback-area">
+            <p>Or use the standard Google button rendered by Google Identity Services SDK:</p>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-theme="outline"
+                 data-text="signin_with"
+                 data-size="large"
+                 data-logo_alignment="left">
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="onetap-architecture-card">
+        <h3>💡 How Google One Tap Works Behind the Scenes</h3>
+        <ul class="onetap-flow-list">
+          <li><strong>Zero Redirects:</strong> Unlike standard OAuth authorization codes, Google's client SDK displays an overlay inside the current page.</li>
+          <li><strong>Direct ID Token POST:</strong> Once tapped, Google signs and POSTs a verified <strong>ID Token (JWT)</strong> directly to our endpoint (<code>/onetap/callback</code>) with CSRF double-submit protection.</li>
+          <li><strong>Backend Verification:</strong> The Flask backend verifies the token using Google's public keys via <code>google.oauth2.id_token.verify_oauth2_token()</code>.</li>
+        </ul>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>GDG on Campus · Nanyang Polytechnic · <a href="{{ url_for('index') }}">Return Home</a></p>
+    </footer>
+  </div>
+
+  <script>
+    async function handleOneTapResponse(response) {
+      if (!response.credential) {
+        console.error('No credential received in One Tap response', response);
+        return;
+      }
+      try {
+        const res = await fetch('{{ url_for("onetap_callback") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ credential: response.credential })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Reload page to display the verified One Tap authenticated state
+          window.location.reload();
+        } else {
+          alert('Authentication error: ' + (data.message || 'Verification failed'));
+        }
+      } catch (err) {
+        console.error('Network error during One Tap verification:', err);
+        alert('Network error during authentication: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

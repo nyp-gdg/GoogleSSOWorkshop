@@ -7,6 +7,8 @@ from flask import Flask, redirect, render_template, request, session, url_for, j
 from authlib.integrations.flask_client import OAuth
 from authlib.jose import jwt
 from google.oauth2.credentials import Credentials
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from googleapiclient.discovery import build
 
 # Load environment variables from .env file
@@ -278,6 +280,56 @@ def tasks():
         return render_template("tasks.html", user=session.get("user"), tasklists=tasklists)
     except Exception as e:
         return render_template("tasks.html", user=session.get("user"), error=str(e), tasklists=[])
+
+
+
+# -----------------------------------------------------------------------------
+# Google One Tap Sign-In
+# -----------------------------------------------------------------------------
+
+@app.route("/onetap")
+def onetap():
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    onetap_user = session.get("user")
+    return render_template("onetap.html", client_id=client_id, user=onetap_user)
+
+@app.route("/onetap/callback", methods=["POST"])
+def onetap_callback():
+    # Support both JSON payload (from JavaScript client callback) and Form POST
+    if request.is_json:
+        data = request.get_json() or {}
+        credential = data.get("credential")
+    else:
+        credential = request.form.get("credential")
+        csrf_token_cookie = request.cookies.get("g_csrf_token")
+        csrf_token_body = request.form.get("g_csrf_token")
+        if not csrf_token_cookie or not csrf_token_body or csrf_token_cookie != csrf_token_body:
+            return jsonify({"status": "error", "message": "CSRF validation failed."}), 400
+
+    if not credential:
+        return jsonify({"status": "error", "message": "Missing credential in request."}), 400
+
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    try:
+        # Verify the integrity and claims of the Google ID token
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
+        session["user"] = idinfo
+        if request.is_json:
+            return jsonify({
+                "status": "success",
+                "message": "Authenticated successfully via Google One Tap",
+                "user": idinfo
+            })
+        return redirect(url_for("onetap"))
+    except ValueError as e:
+        return jsonify({"status": "error", "message": f"Invalid ID token: {str(e)}"}), 400
+
+@app.route("/onetap/logout")
+def onetap_logout():
+    session.pop("user", None)
+    session.pop("access_token", None)
+    return redirect(url_for("onetap"))
+
 
 if __name__ == "__main__":
     # Host on 127.0.0.1:5000 (matches Google Cloud OAuth redirect URI)

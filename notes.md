@@ -22,6 +22,8 @@ Notes for anyone who gets lost, falls behind, or wants to redo the session later
 - [Part 12 — Google Cloud Console Setup & `.env`](#part-12--google-cloud-console-setup--env)
 - [Part 13 — Trying Out the Google Tasks App](#part-13--trying-out-the-google-tasks-app)
 - [Part 14 — How Does Everything Work? (OpenID Connect & OAuth 2.0)](#part-14--how-does-everything-work-openid-connect--oauth-20)
+- [Part 15 — Google One Tap Sign-In Demo](#part-15--google-one-tap-sign-in-demo)
+- [Part 16 — Explain Google One Tap Sign-In](#part-16--explain-google-one-tap-sign-in)
 - [Appendix: Troubleshooting & Security Checklist](#appendix-troubleshooting--security-checklist)
 
 ---
@@ -540,6 +542,124 @@ To test what happens when a user revokes application permissions:
 1. Visit [https://myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 2. Locate `GDGoC NYP Workshop` and click **Remove Access**.
 3. Refresh `/tasks` &rarr; observe how the app handles revoked authorization gracefully!
+
+---
+
+## Part 15 — Google One Tap Sign-In Demo
+
+> [!IMPORTANT]
+> To prevent issues later, please click the `i` icon in your browser to access this site's site settings and set the permission `Third-party sign-in` to `Allow`. This is because our current site is HTTP and Chrome might want to try and prevent tracking on the site.
+
+Navigate to the dedicated One Tap showcase page:  
+👉 **[http://127.0.0.1:5000/onetap](http://127.0.0.1:5000/onetap)**
+
+### 15.1 Experience One Tap
+1. Open [http://127.0.0.1:5000/onetap](http://127.0.0.1:5000/onetap) in a browser where you are logged into your Google Account.
+2. In the top-right corner of the webpage, Google Identity Services displays an inline floating prompt card:
+   - *"Continue as [Your Name]"*.
+3. Click your account once (one single tap!).
+4. The page immediately transitions to authenticated state without any full-page redirect to Google!
+5. Inspect the decoded ID token claims on screen, including verified Google `sub`, email, and full name.
+
+---
+
+## Part 16 — Explain Google One Tap Sign-In
+
+### 16.1 Why One Tap?
+Standard OAuth 2.0 / OpenID Connect redirect flows pull users away from your site to an external Google Accounts consent page and redirect them back through a code exchange.
+
+**Google One Tap (part of Google Identity Services)** solves friction by letting users sign in or sign up with a single click directly inside your website layout:
+- **Zero Page Navigation**: The prompt runs as a native Google iframe floating over the page.
+- **Immediate Credential Delivery**: Instead of an authorization code, Google returns a signed **ID Token (JWT)** immediately upon user confirmation.
+- **Cross-Platform**: Works smoothly on Chrome, Android, macOS, Windows, and iOS Safari.
+
+### 16.2 Client-Side Setup (`templates/onetap.html`)
+
+Include the Google Identity Services client script and use a JavaScript callback via `data-callback`:
+
+```html
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<div id="g_id_onload"
+     data-client_id="{{ client_id }}"
+     data-callback="handleOneTapResponse"
+     data-auto_prompt="true"
+     data-auto_select="true"
+     data-itp_support="true">
+</div>
+
+<script>
+  async function handleOneTapResponse(response) {
+    // response.credential is the verified Google ID Token (JWT)
+    const res = await fetch('/onetap/callback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    if (res.ok) {
+      window.location.reload();
+    }
+  }
+</script>
+```
+
+> **Why `data-callback` instead of `data-login_uri`?**  
+> Google's library requires `https://` for `data-login_uri` (except for literal `http://localhost`). Using `http://127.0.0.1` with `data-login_uri` triggers `[GSI_LOGGER]: Unsecured login_uri provided`. Using `data-callback` bypasses this limitation during local development by receiving the ID Token in JavaScript and `fetch`ing your Flask backend directly!
+
+### 16.3 Backend Verification in Flask (`app.py`)
+
+When the user taps the prompt, the ID Token is posted to `/onetap/callback`:
+
+```py
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+@app.route("/onetap/callback", methods=["POST"])
+def onetap_callback():
+    data = request.get_json() or {}
+    credential = data.get("credential")
+
+    if not credential:
+        return jsonify({"status": "error", "message": "Missing credential in request."}), 400
+
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    try:
+        # Cryptographic signature and claim verification via Google SDK
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
+        session["onetap_user"] = idinfo
+        return jsonify({"status": "success", "user": idinfo})
+    except ValueError as e:
+        return jsonify({"status": "error", "message": f"Invalid ID token: {str(e)}"}), 400
+```
+
+1. **Double Submit CSRF**: Validates that `g_csrf_token` cookie matches the body parameter.
+2. **`id_token.verify_oauth2_token`**: Uses Google's public certificates (fetched automatically by the SDK) to cryptographically verify the signature, ensure `aud == client_id`, and check `exp`.
+
+
+### 16.4 Key Differences: Google One Tap vs. The Earlier OAuth Flow
+
+A common point of confusion for developers is when to use **Google One Tap** versus the **OAuth 2.0 Authorization Code Flow** we implemented in Parts 12–14. 
+
+The core distinction comes down to **Authentication (Identity)** versus **Authorization (API Access)**:
+
+| Feature / Property | Earlier Workshop Flow (Parts 12–14) | Google One Tap (Parts 15–16) |
+| :--- | :--- | :--- |
+| **Primary Goal** | **Authentication + Delegated Authorization** | **Pure Authentication (Identity Only)** |
+| **Tokens Received** | **ID Token**, **Access Token**, & **Refresh Token** | **ID Token only** (credential JWT) |
+| **Third-Party API Access** | ✅ **Yes** (e.g. Google Tasks, Drive, Calendar via Access Token) | ❌ **No** (Cannot call Google APIs directly with One Tap alone) |
+| **User Experience** | Full-page redirect to Google Accounts consent screen | Instant floating inline UI overlay (zero page redirects) |
+| **Scopes Requested** | Broad permissions (e.g., `tasks.readonly`, `profile`, `email`) | Standard identity scopes only (`openid`, `profile`, `email`) |
+| **Token Refreshing** | Background refresh via long-lived **Refresh Token** | User re-authenticates or session is refreshed in browser |
+
+#### 1. Authentication vs. Authorization in Practice
+- **What Google One Tap did:** It only proved **who the user is** (Authentication). Google signed an **ID Token** containing the user's name, email, avatar, and unique `sub`. It gave our application **zero permission** to read their Google Tasks or act on their behalf.
+- **What our earlier flow did:** In `/login` & `/callback`, we asked the user for explicit permission to manage their Google Tasks. In exchange, Google gave us an **Access Token** (to query `tasks.googleapis.com`) and a **Refresh Token** (to get new access tokens when they expire).
+
+#### 2. Production Patterns: How Real Apps Combine Both
+In modern web applications, you rarely choose only one:
+1. **Frictionless Onboarding (One Tap First):** When a new or returning user visits your site, display **Google One Tap**. This logs them into your app instantly with 1 tap and creates their local user account in your database.
+2. **Incremental Authorization (Ask Later):** Only when the user explicitly clicks a feature requiring Google APIs (e.g., *"Import My Google Tasks"* or *"Sync with Google Drive"*), you trigger the **OAuth 2.0 Authorization Code Flow** to request that specific permission scope.
+3. **Token Persistence in Production:** In production applications, the **Refresh Token** obtained during the authorization step is stored securely in your database (encrypted at rest) associated with the user's `sub`. This allows your backend to perform background tasks or sync data without repeatedly asking the user to re-authorize every time they visit. 
 
 ---
 
