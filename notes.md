@@ -4,7 +4,7 @@
 
 Notes for anyone who gets lost, falls behind, or wants to redo the session later. Everything here matches the live workshop progression and template app.
 
-- Starter repo: `/home/azlancoding/GitHub/google-sso-workshop`  
+- Starter repo: https://github.com/nyp-gdg/GoogleSSOWorkshop  
 - Questions after the session: ping us on Discord or reply to the workshop email
 
 ---
@@ -40,7 +40,8 @@ Notes for anyone who gets lost, falls behind, or wants to redo the session later
 ### 4.2 Clone & Set Up Virtual Environment
 
 ```sh
-cd /home/azlancoding/GitHub/google-sso-workshop
+git clone https://github.com/nyp-gdg/GoogleSSOWorkshop
+cd google-sso-workshop
 
 # 1. Create virtual environment
 python3 -m venv .venv
