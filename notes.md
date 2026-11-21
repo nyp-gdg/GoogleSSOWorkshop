@@ -18,6 +18,7 @@ Notes for anyone who gets lost, falls behind, or wants to redo the session later
 - [Part 8 — Demo Stateful Session Auth](#part-8--demo-stateful-session-auth)
 - [Part 9 — Explain Stateless JWT Auth](#part-9--explain-stateless-jwt-auth)
 - [Part 10 — Demo Stateless JWT Auth](#part-10--demo-stateless-jwt-auth)
+- [Part 10.5 — Flask's Built-In Sessions (`app2.py`)](#part-105--flask-built-in-sessions-app2py)
 - [Part 11 — Short Break!](#part-11--short-break)
 - [Part 12 — Google Cloud Console Setup & `.env`](#part-12--google-cloud-console-setup--env)
 - [Part 13 — Trying Out the Google Tasks App](#part-13--trying-out-the-google-tasks-app)
@@ -342,6 +343,134 @@ def demo_bearer_auth():
    - Result: `HTTP 401 - Invalid or expired token: Bad signature`!
 4. Click **Send Without Token**:
    - Result: `HTTP 401 - Missing or invalid Bearer token`.
+
+---
+
+## Part 10.5 — Flask's Built-In Sessions (`app2.py`)
+
+Parts 7–8 built session auth by hand: we generated a random session ID, stored it in `DEMO_SESSIONS`, and set the cookie ourselves. Parts 9–10 then looked at stateless JWT auth, where the signed token itself carries the user's identity. Flask's built-in `session` sits somewhere in between: the session data is stored in the browser, like a JWT, but Flask manages the cookie and signing for you. The companion file `app2.py` is a complete, minimal login system that uses it.
+
+> **Flask session vs JWT:** In both cases here, the data is signed, not encrypted: anyone who can see the cookie or token can decode it, but cannot change it without breaking the signature. Flask's session is a signed cookie that Flask sends automatically and usually holds a small Python dictionary; there is no server-side session table to look up. It is not a JWT standard. A JWT is a standard token that you typically send yourself in an `Authorization` header, which makes it a good fit for APIs. Never put passwords or secrets in either.
+
+### 10.5.1 Run It
+
+```sh
+python app2.py
+```
+
+Open [http://127.0.0.1:5001](http://127.0.0.1:5001) (port `5001`, so it can run alongside `app.py` on `5000`).
+
+Log in with either demo account:
+- `sofia` / `secret`
+- `alex` / `password123`
+
+### 10.5.2 How Flask's Session Works
+
+1. You set `app.secret_key`. Flask needs it to **sign** the session cookie.
+2. Your code writes a value: `session["user"] = username`.
+3. Flask serialises the session data, signs it, and sends it to the browser as the `session` cookie.
+4. The browser sends that cookie on every request. Flask checks the signature, then gives your code the data back through `session`.
+
+Flask's `session` behaves like a dictionary, so the usual `session["user"]`, `session.get("user")`, and `session.pop("user")` operations all work.
+
+> **Important: signed, not secret.** Flask's default session is a **signed cookie**, not an encrypted one. Anyone who can see the cookie (for example, in DevTools) can decode the values; they just cannot change them without breaking the signature. Never put passwords, API keys, or other secrets in `session`.
+
+> **How this differs from `app.py`:** `DEMO_SESSIONS` lives in server memory, so restarting the server logs everyone out. The Flask session lives in the browser cookie, so it survives a server restart. The trade-offs are that the client can read the data and a cookie can only hold about 4 KB.
+
+### 10.5.3 The Core Code
+
+The full working file is [`app2.py`](app2.py). The four important pieces are:
+
+**1. Give Flask a signing key**
+
+```py
+app = Flask(__name__)
+app.secret_key = "dev-secret-key-change-me"  # use a strong secret from .env in production
+```
+
+**2. On login, save the user in the session**
+
+```py
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    # Already logged in? Send the user home instead of showing the form again.
+    if "user" in session:
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        # USERS is a fake demo "database". Plain-text passwords are for
+        # teaching only -- never do this in a real application.
+        if username in USERS and USERS[username] == password:
+            session["user"] = username  # Flask signs this and stores it in a cookie
+            return redirect(url_for("index"))
+
+    # ... otherwise fall through and show the login form (plus an error)
+```
+
+**3. Protect pages with a decorator**
+
+```py
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+    return wrapped
+
+
+@app.route("/profile")
+@login_required
+def profile():
+    return page("Profile", f"<p>Hello, {session['user']}!</p>")
+```
+
+**4. Log out by removing the user**
+
+```py
+@app.route("/logout")
+def logout():
+    session.pop("user", None)  # or session.clear() to remove everything
+    return redirect(url_for("login"))
+```
+
+The HTML is returned directly from `app2.py` (no template files and no CSS), so the file stays focused on the session logic. Because the displayed username comes from our fixed `USERS` table, it is safe to insert it into these HTML strings. In a real app, use Jinja templates so user-supplied values are escaped automatically.
+
+### 10.5.4 Try It Out
+
+1. Visit `/profile` while logged out &rarr; you are redirected to `/login`.
+2. Log in as `sofia` / `secret` &rarr; `/` greets you and `/profile` now works.
+3. While still logged in, visit `/login` &rarr; you are redirected to `/` instead of seeing the form again. Log out first if you want to sign in as a different user.
+4. Open your browser's DevTools &rarr; **Application** (Chrome) or **Storage** (Firefox) &rarr; **Cookies** &rarr; `http://127.0.0.1:5001`. Find the `session` cookie and look at its value. The first part is base64-encoded JSON: decode `eyJ1c2VyIjoic29maWEifQ` and you get `{"user":"sofia"}`. This is exactly why you must not store secrets in the session!
+5. Click **Logout**, then visit `/profile` again &rarr; you are redirected to `/login`.
+
+### 10.5.5 Production Checklist
+
+- Hash passwords with `werkzeug.security.generate_password_hash()` and `check_password_hash()` — never store plain text.
+- Load `secret_key` from an environment variable, not from source code.
+- Set `SESSION_COOKIE_SECURE = True` when the site uses HTTPS, and consider `SESSION_COOKIE_SAMESITE = "Lax"`.
+- Keep only a user ID or username in the session; load the rest from your database.
+- Sessions expire when the browser closes by default. For "remember me" behaviour, set `session.permanent = True` and configure `PERMANENT_SESSION_LIFETIME`.
+
+### 10.5.6 Recommended for Your Project: Flask-Login
+
+For the **Year 1 Web Development Project** module, we highly recommend **Flask-Login**. It was not covered in this workshop, but it is a well-tested next step. It uses the same `session` concept under the hood but gives you:
+
+- `login_user()` and `logout_user()` helpers
+- a `current_user` object available in every route and template
+- `@login_required` out of the box
+- "Remember me" cookies and session protection
+
+Install it with:
+
+```sh
+pip install flask-login
+```
+
+Step-by-step tutorial: [How to Add Authentication to Your App with Flask-Login](https://www.digitalocean.com/community/tutorials/how-to-add-authentication-to-your-app-with-flask-login)
 
 ---
 

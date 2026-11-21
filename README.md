@@ -51,6 +51,7 @@ Open **[http://127.0.0.1:5000](http://127.0.0.1:5000)** in your browser!
 ```
 google-sso-workshop/
 ├── app.py              # Main Flask application with Auth routes
+├── app2.py             # Minimal login demo using Flask's built-in session
 ├── requirements.txt    # Python dependencies
 ├── .env.example        # Environment variable template
 ├── .gitignore
